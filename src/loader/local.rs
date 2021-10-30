@@ -3,7 +3,21 @@ use std::{fs, path::Path};
 use anyhow::{Context, Result};
 use serde::{de::Visitor, Deserialize};
 
-use super::Translation;
+#[derive(Debug, Clone)]
+pub struct Translation {
+    pub term: String,
+    pub translation: String,
+}
+
+impl Translation {
+    pub fn new(term: String, translation: String) -> Self {
+        Self { term, translation }
+    }
+
+    pub fn cmp_by_term(&self, other: &Self) -> std::cmp::Ordering {
+        self.term.cmp(&other.term)
+    }
+}
 
 pub fn load_from_file<P>(path: P) -> Result<Vec<Translation>>
 where

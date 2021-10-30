@@ -1,12 +1,37 @@
 use anyhow::{Context, Result};
 use itertools::{EitherOrBoth, Itertools};
-use serde::Deserialize;
 
-use super::Translation;
 use traduora::{
-    api::{terms::Terms, translations::Translations, ProjectId},
-    Client, Login, Query, Traduora,
+    api::{
+        terms::{Term, Terms},
+        translations::Translations,
+        TermId,
+    },
+    Login, Query, Traduora,
 };
+
+#[derive(Debug, Clone)]
+pub struct Translation {
+    pub term_id: TermId,
+    pub term: String,
+    pub translation: String,
+}
+
+impl Translation {
+    pub fn cmp_by_term(&self, other: &Self) -> std::cmp::Ordering {
+        self.term.cmp(&other.term)
+    }
+}
+
+impl From<(Term, String)> for Translation {
+    fn from((term, translation): (Term, String)) -> Self {
+        Self {
+            term_id: term.id,
+            term: term.value,
+            translation,
+        }
+    }
+}
 
 const USER: &str = "test@test.test";
 const PWD: &str = "12345678";

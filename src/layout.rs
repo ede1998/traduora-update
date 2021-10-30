@@ -1,11 +1,11 @@
-use druid::lens::{Constant, Unit};
+use druid::im;
 use druid::widget::{
-    Axis, Button, Checkbox, Controller, Flex, Label, LensWrap, List, ListIter, Scroll, Switch,
-    Tabs, TabsEdge, TabsTransition, TextBox,
+    Button, Checkbox, Controller, Flex, Label, List, Scroll, Tabs, TabsTransition,
 };
-use druid::{im, Color};
-use druid::{AppLauncher, Env, LocalizedString, PlatformError, Widget, WidgetExt, WindowDesc};
 use druid::{Data, Lens};
+use druid::{Env, Widget, WidgetExt};
+
+use crate::loader::{Modification, Translation};
 
 #[derive(Data, Clone, Lens)]
 pub struct TabData<T> {
@@ -25,11 +25,14 @@ where
     }
 }
 
-impl<T: Clone> From<Modifications<T>> for TabData<T> {
-    fn from(m: Modifications<T>) -> Self {
+impl<T> From<im::Vector<ModificationEntry<T>>> for TabData<T>
+where
+    T: Clone,
+{
+    fn from(m: im::Vector<ModificationEntry<T>>) -> Self {
         Self {
             select_all_active: true,
-            entries: m.into(),
+            entries: m,
         }
     }
 }
@@ -41,23 +44,6 @@ pub struct AppState {
     pub updated: TabData<Updated>,
 }
 
-type Modifications<T> = Vec<ModificationEntry<T>>;
-type ModificationSet = (
-    Modifications<Added>,
-    Modifications<Removed>,
-    Modifications<Updated>,
-);
-
-impl From<ModificationSet> for AppState {
-    fn from((added, removed, updated): ModificationSet) -> Self {
-        Self {
-            added: added.into(),
-            removed: removed.into(),
-            updated: updated.into(),
-        }
-    }
-}
-
 #[derive(Clone, Debug, Data, Lens)]
 pub struct ModificationEntry<T> {
     pub active: bool,
@@ -66,12 +52,34 @@ pub struct ModificationEntry<T> {
     pub modification: T,
 }
 
-impl<T> ModificationEntry<T> {
-    pub fn new(term: String, translation: String, modification: T) -> Self {
+impl ModificationEntry<Updated> {
+    pub fn updated(term: String, translation: String) -> Self {
         Self {
             active: true,
             term,
-            modification,
+            modification: Updated,
+            translation,
+        }
+    }
+}
+
+impl ModificationEntry<Removed> {
+    pub fn removed(term: String, translation: String) -> Self {
+        Self {
+            active: true,
+            term,
+            modification: Removed,
+            translation,
+        }
+    }
+}
+
+impl ModificationEntry<Added> {
+    pub fn added(term: String, translation: String) -> Self {
+        Self {
+            active: true,
+            term,
+            modification: Added,
             translation,
         }
     }
@@ -172,4 +180,34 @@ pub fn build_ui() -> impl Widget<AppState> {
             10.,
         )
         .with_child(Button::new("Update terms").padding(10.))
+}
+
+pub fn build_app_state(translations: &[Translation]) -> AppState {
+    let added: im::Vector<_> = translations
+        .iter()
+        .filter_map(|t| {
+            matches!(t.modification, Modification::Added)
+                .then(|| ModificationEntry::added(t.term.clone(), t.translation.clone()))
+        })
+        .collect();
+    let removed: im::Vector<_> = translations
+        .iter()
+        .filter_map(|t| {
+            matches!(t.modification, Modification::Removed(_))
+                .then(|| ModificationEntry::removed(t.term.clone(), t.translation.clone()))
+        })
+        .collect();
+    let updated: im::Vector<_> = translations
+        .iter()
+        .filter_map(|t| {
+            matches!(t.modification, Modification::Updated(_))
+                .then(|| ModificationEntry::updated(t.term.clone(), t.translation.clone()))
+        })
+        .collect();
+
+    AppState {
+        added: added.into(),
+        removed: removed.into(),
+        updated: updated.into(),
+    }
 }
