@@ -3,6 +3,7 @@
 
 use druid::{AppLauncher, PlatformError, WindowDesc};
 
+mod config;
 mod layout;
 mod loader;
 mod updater;

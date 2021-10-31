@@ -194,7 +194,11 @@ pub fn build_ui() -> impl Widget<AppState> {
                 .with_tab("Updated", build_list().lens(AppState::updated)),
             10.,
         )
-        .with_child(Button::new("Update terms").padding(10.))
+        .with_child(Button::new("Update terms").padding(10.).on_click(
+            |_ctx, data: &mut AppState, _env| {
+                let _ = crate::updater::run(data);
+            },
+        ))
 }
 
 pub fn build_app_state(translations: impl IntoIterator<Item = Translation>) -> AppState {

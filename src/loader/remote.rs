@@ -7,7 +7,7 @@ use traduora::{
         translations::Translations,
         TermId,
     },
-    Login, Query, Traduora,
+    Query,
 };
 
 #[derive(Debug, Clone)]
@@ -33,29 +33,19 @@ impl From<(Term, String)> for Translation {
     }
 }
 
-const USER: &str = "test@test.test";
-const PWD: &str = "12345678";
-const HOST: &str = "localhost:8080";
-const LOCALE: &str = "en";
-const PROJECT_ID: &str = "92047938-c050-4d9c-83f8-6b1d7fae6b01";
-
 pub fn fetch_from_traduora() -> Result<Vec<Translation>> {
-    let client =
-        Traduora::with_auth_insecure(HOST, Login::password(USER, PWD)).with_context(|| {
-            format!(
-                "Login failed for Traduora instance {} (user: {})",
-                HOST, USER
-            )
-        })?;
+    use crate::config::*;
+    let client = create_client()?;
+
     let mut terms = Terms(PROJECT_ID.into())
         .query(&client)
-        .with_context(|| format!("Failed to load terms for project {}", PROJECT_ID))?;
+        .with_context(|| format!("Failed to load terms for project {:?}", PROJECT_ID))?;
 
     let mut translations = Translations::new(PROJECT_ID.into(), LOCALE.into())
         .query(&client)
         .with_context(|| {
             format!(
-                "Failed to load translations for locale {} in project {}",
+                "Failed to load translations for locale {:?} in project {:?}",
                 LOCALE, PROJECT_ID
             )
         })?;
