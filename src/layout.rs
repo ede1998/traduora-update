@@ -4,6 +4,7 @@ use druid::widget::{
 };
 use druid::{Data, Lens};
 use druid::{Env, Widget, WidgetExt};
+use traduora::api::TermId;
 
 use crate::loader::{Modification, Translation};
 
@@ -53,22 +54,22 @@ pub struct ModificationEntry<T> {
 }
 
 impl ModificationEntry<Updated> {
-    pub fn updated(term: String, translation: String) -> Self {
+    pub fn updated(term: String, translation: String, id: TermId) -> Self {
         Self {
             active: true,
             term,
-            modification: Updated,
+            modification: Updated(id),
             translation,
         }
     }
 }
 
 impl ModificationEntry<Removed> {
-    pub fn removed(term: String, translation: String) -> Self {
+    pub fn removed(term: String, translation: String, id: TermId) -> Self {
         Self {
             active: true,
             term,
-            modification: Removed,
+            modification: Removed(id),
             translation,
         }
     }
@@ -95,10 +96,24 @@ impl<T> DisplayString for ModificationEntry<T> {
     }
 }
 
-#[derive(Clone, Debug, Data)]
-pub struct Removed;
-#[derive(Clone, Debug, Data)]
-pub struct Updated;
+#[derive(Clone, Debug)]
+pub struct Removed(pub TermId);
+
+impl Data for Removed {
+    fn same(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Updated(pub TermId);
+
+impl Data for Updated {
+    fn same(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
 #[derive(Clone, Debug, Data)]
 pub struct Added;
 
@@ -182,28 +197,27 @@ pub fn build_ui() -> impl Widget<AppState> {
         .with_child(Button::new("Update terms").padding(10.))
 }
 
-pub fn build_app_state(translations: &[Translation]) -> AppState {
-    let added: im::Vector<_> = translations
-        .iter()
-        .filter_map(|t| {
-            matches!(t.modification, Modification::Added)
-                .then(|| ModificationEntry::added(t.term.clone(), t.translation.clone()))
-        })
-        .collect();
-    let removed: im::Vector<_> = translations
-        .iter()
-        .filter_map(|t| {
-            matches!(t.modification, Modification::Removed(_))
-                .then(|| ModificationEntry::removed(t.term.clone(), t.translation.clone()))
-        })
-        .collect();
-    let updated: im::Vector<_> = translations
-        .iter()
-        .filter_map(|t| {
-            matches!(t.modification, Modification::Updated(_))
-                .then(|| ModificationEntry::updated(t.term.clone(), t.translation.clone()))
-        })
-        .collect();
+pub fn build_app_state(translations: impl IntoIterator<Item = Translation>) -> AppState {
+    fn new<T: Clone>() -> im::Vector<ModificationEntry<T>> {
+        im::Vector::<ModificationEntry<T>>::new()
+    }
+    let (added, removed, updated) = translations.into_iter().fold(
+        (new::<Added>(), new::<Removed>(), new::<Updated>()),
+        |(mut added, mut removed, mut updated), t| {
+            match t.modification {
+                Modification::Removed(id) => {
+                    removed.push_back(ModificationEntry::removed(t.term, t.translation, id))
+                }
+                Modification::Added => {
+                    added.push_back(ModificationEntry::added(t.term, t.translation))
+                }
+                Modification::Updated(id) => {
+                    updated.push_back(ModificationEntry::updated(t.term, t.translation, id))
+                }
+            }
+            (added, removed, updated)
+        },
+    );
 
     AppState {
         added: added.into(),

@@ -9,7 +9,7 @@ mod updater;
 
 fn main() -> Result<(), PlatformError> {
     let data = loader::load_data().unwrap();
-    let state = layout::build_app_state(&data);
+    let state = layout::build_app_state(data);
     let main_window = WindowDesc::new(layout::build_ui);
     AppLauncher::with_window(main_window)
         .use_simple_logger()
