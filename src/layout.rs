@@ -1,17 +1,62 @@
+use std::sync::Arc;
+
 use druid::widget::{
-    Button, Checkbox, Container, Controller, Flex, Label, List, ProgressBar, Scroll, Spinner, Tabs,
-    TabsTransition,
+    Button, Checkbox, Controller, Either, Flex, Label, LineBreaking, List, ProgressBar, Scroll,
+    Spinner, Tabs, TabsTransition,
 };
-use druid::{im, theme, Color};
+use druid::{im, theme, AppDelegate, ExtEventSink, LensExt, Selector, SingleUse, Target};
 use druid::{Data, Lens};
 use druid::{Env, Widget, WidgetExt};
+use itertools::Itertools;
 use traduora::api::TermId;
 
 use crate::loader::{Modification, Translation};
 use crate::modal_host::ModalHost;
+use crate::updater::{Error as UpdateError, UpdateResult};
 
-#[derive(Data, Clone, Lens)]
-pub struct TabData<T> {
+trait LensExtExt<A: ?Sized, B: ?Sized>: LensExt<A, B> {
+    fn read_only<Get, C>(self, get: Get) -> druid::lens::Then<Self, ReadOnly<Get>, B>
+    where
+        Get: Fn(&B) -> C,
+        Self: Sized,
+    {
+        self.then(ReadOnly::new(get))
+    }
+}
+
+impl<A, B, L> LensExtExt<A, B> for L where L: Lens<A, B> {}
+
+/// Lens that silently discards all writes.
+#[derive(Clone, Copy, Debug)]
+struct ReadOnly<Get> {
+    get: Get,
+}
+
+impl<Get> ReadOnly<Get> {
+    fn new<A: ?Sized, B: ?Sized>(get: Get) -> Self
+    where
+        Get: Fn(&A) -> B,
+    {
+        Self { get }
+    }
+}
+
+impl<A: ?Sized, B, Get> Lens<A, B> for ReadOnly<Get>
+where
+    Get: Fn(&A) -> B,
+{
+    fn with<V, F: FnOnce(&B) -> V>(&self, data: &A, f: F) -> V {
+        f(&(self.get)(data))
+    }
+
+    fn with_mut<V, F: FnOnce(&mut B) -> V>(&self, data: &mut A, f: F) -> V {
+        let mut temp = (self.get)(data);
+        f(&mut temp)
+    }
+}
+
+#[derive(Data, Debug, Clone, Lens)]
+pub struct TabData<T: Clone> {
     pub select_all_active: bool,
     pub entries: im::Vector<ModificationEntry<T>>,
 }
@@ -40,12 +85,104 @@ where
     }
 }
 
-#[derive(Data, Clone, Lens, Default)]
+#[derive(Data, Debug, Clone)]
+enum Popup {
+    Progressing(f64),
+    Finished(Arc<UpdateResult>),
+}
+
+impl Popup {
+    fn as_progressing(&self) -> Option<f64> {
+        match self {
+            Self::Progressing(v) => Some(*v),
+            _ => None,
+        }
+    }
+
+    /// Returns `true` if the popup is [`Finished`].
+    ///
+    /// [`Finished`]: Popup::Finished
+    fn is_finished(&self) -> bool {
+        matches!(self, Self::Finished(..))
+    }
+
+    fn as_finished(&self) -> Option<&Arc<UpdateResult>> {
+        if let Self::Finished(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
+impl Default for Popup {
+    fn default() -> Self {
+        Self::Progressing(0.0)
+    }
+}
+
+#[derive(Data, Debug, Clone, Lens, Default)]
 pub struct AppState {
     pub added: TabData<Added>,
     pub removed: TabData<Removed>,
     pub updated: TabData<Updated>,
-    progress: f64,
+    popup: Popup,
+}
+
+impl AppState {
+    fn extract_translations(&self) -> Vec<Translation> {
+        fn extract<'a, T, I, F>(elements: I, construct: F) -> impl Iterator<Item = Translation> + 'a
+        where
+            T: 'a + Clone,
+            I: IntoIterator<Item = &'a ModificationEntry<T>> + 'a,
+            F: Fn(String, String, T) -> Translation + 'a,
+        {
+            elements.into_iter().cloned().filter_map(move |e| {
+                e.active
+                    .then(|| construct(e.term, e.translation, e.modification))
+            })
+        }
+        let added = extract(&self.added.entries, |term, translation, _| {
+            Translation::added(term, translation)
+        });
+        let removed = extract(&self.removed.entries, |term, translation, r| {
+            Translation::removed(term, translation, r.0)
+        });
+        let updated = extract(&self.updated.entries, |term, translation, u| {
+            Translation::updated(term, translation, u.0)
+        });
+        added.chain(removed).chain(updated).collect()
+    }
+
+    pub fn build(translations: impl IntoIterator<Item = Translation>) -> Self {
+        fn new<T: Clone>() -> im::Vector<ModificationEntry<T>> {
+            im::Vector::<ModificationEntry<T>>::new()
+        }
+        let (added, removed, updated) = translations.into_iter().fold(
+            (new::<Added>(), new::<Removed>(), new::<Updated>()),
+            |(mut added, mut removed, mut updated), t| {
+                match t.modification {
+                    Modification::Removed(id) => {
+                        removed.push_back(ModificationEntry::removed(t.term, t.translation, id));
+                    }
+                    Modification::Added => {
+                        added.push_back(ModificationEntry::added(t.term, t.translation));
+                    }
+                    Modification::Updated(id) => {
+                        updated.push_back(ModificationEntry::updated(t.term, t.translation, id));
+                    }
+                }
+                (added, removed, updated)
+            },
+        );
+
+        Self {
+            added: added.into(),
+            removed: removed.into(),
+            updated: updated.into(),
+            ..Self::default()
+        }
+    }
 }
 
 #[derive(Clone, Debug, Data, Lens)]
@@ -96,6 +233,12 @@ trait DisplayString {
 impl<T> DisplayString for ModificationEntry<T> {
     fn display_string(&self) -> String {
         format!("{} ==> {}", self.term, self.translation)
+    }
+}
+
+impl DisplayString for (String, String, anyhow::Error) {
+    fn display_string(&self) -> String {
+        format!("{} ==> {}: {}", self.0, self.1, self.2)
     }
 }
 
@@ -199,9 +342,10 @@ pub fn build_ui() -> impl Widget<AppState> {
         )
         .with_child(Button::new("Update terms").padding(10.).on_click(
             |ctx, data: &mut AppState, _env| {
+                data.popup = Popup::default();
                 let cmd = ModalHost::make_modal_command(build_popup);
                 ctx.submit_command(cmd);
-                //let _ = crate::updater::run(data);
+                wrapped_run(ctx.get_external_handle(), data);
             },
         ));
 
@@ -209,42 +353,94 @@ pub fn build_ui() -> impl Widget<AppState> {
 }
 
 fn build_popup() -> impl Widget<AppState> {
-    Flex::column()
+    let progressing = Flex::column()
         .with_child(Label::new("Uploading terms."))
         .with_default_spacer()
         .with_child(Spinner::new())
         .with_default_spacer()
-        .with_child(ProgressBar::new().lens(AppState::progress))
+        .with_child(ProgressBar::new())
         .padding(16.0)
         .background(theme::BACKGROUND_DARK)
+        .lens(AppState::popup.read_only(|p: &Popup| p.as_progressing().unwrap_or(0.)));
+
+    let finished = Flex::column()
+        .with_child(Label::new("Finished uploading terms."))
+        .with_default_spacer()
+        .with_flex_child(
+            Scroll::new(
+                Label::new(|data: &Arc<UpdateResult>, _: &_| match data.as_ref() {
+                    Ok(_) => "No error occurred.".into(),
+                    Err(UpdateError::ClientCreation(e)) => format!("{}", e),
+                    Err(UpdateError::Update(errs)) => {
+                        errs.iter().map(DisplayString::display_string).join("\n")
+                    }
+                })
+                .with_line_break_mode(LineBreaking::WordWrap),
+            ),
+            1.,
+        )
+        .with_default_spacer()
+        .with_child(Button::new("Ok").on_click(|ctx, _, _| {
+            ctx.submit_command(ModalHost::DISMISS_MODAL);
+        }))
+        .padding(16.0)
+        .background(theme::BACKGROUND_DARK)
+        .lens(
+            AppState::popup
+                .read_only(|p: &Popup| p.as_finished().cloned().unwrap_or_else(|| Ok(()).into())),
+        );
+
+    Either::new(
+        |data: &AppState, _| data.popup.is_finished(),
+        finished,
+        progressing,
+    )
 }
 
-pub fn build_app_state(translations: impl IntoIterator<Item = Translation>) -> AppState {
-    fn new<T: Clone>() -> im::Vector<ModificationEntry<T>> {
-        im::Vector::<ModificationEntry<T>>::new()
-    }
-    let (added, removed, updated) = translations.into_iter().fold(
-        (new::<Added>(), new::<Removed>(), new::<Updated>()),
-        |(mut added, mut removed, mut updated), t| {
-            match t.modification {
-                Modification::Removed(id) => {
-                    removed.push_back(ModificationEntry::removed(t.term, t.translation, id))
-                }
-                Modification::Added => {
-                    added.push_back(ModificationEntry::added(t.term, t.translation))
-                }
-                Modification::Updated(id) => {
-                    updated.push_back(ModificationEntry::updated(t.term, t.translation, id))
-                }
-            }
-            (added, removed, updated)
-        },
-    );
+fn wrapped_run(sink: ExtEventSink, data: &AppState) {
+    let translations = data.extract_translations();
 
-    AppState {
-        added: added.into(),
-        removed: removed.into(),
-        updated: updated.into(),
-        ..Default::default()
+    std::thread::spawn(move || {
+        let result = crate::updater::run(translations, |current, max| {
+            let current = current as f64;
+            let max = max.max(1) as f64;
+            let percentage = current / max;
+            log::debug!("Sending update progress command: {} of {}", current, max);
+            sink.submit_command(UPDATE_PROGRESS, percentage, Target::Auto)
+                .expect("Failed to submit update progress command.");
+        });
+        log::info!("Sending finished update command: {:#?}", result);
+        sink.submit_command(UPDATE_FINISHED, SingleUse::new(result), Target::Auto)
+            .expect("Failed to submit update finished command.");
+    });
+}
+
+const UPDATE_PROGRESS: Selector<f64> =
+    Selector::new("me.erik-hennig.traduora-update.update-progress");
+
+const UPDATE_FINISHED: Selector<SingleUse<UpdateResult>> =
+    Selector::new("me.erik-hennig.traduora-update.update-finished");
+
+pub struct Delegate;
+
+impl AppDelegate<AppState> for Delegate {
+    fn command(
+        &mut self,
+        _: &mut druid::DelegateCtx,
+        _: Target,
+        cmd: &druid::Command,
+        data: &mut AppState,
+        _: &Env,
+    ) -> druid::Handled {
+        log::debug!("Received command {:?}.", cmd);
+        if let Some(progress) = cmd.get(UPDATE_PROGRESS) {
+            data.popup = Popup::Progressing(*progress);
+            druid::Handled::Yes
+        } else if let Some(result) = cmd.get(UPDATE_FINISHED).and_then(SingleUse::take) {
+            data.popup = Popup::Finished(result.into());
+            druid::Handled::Yes
+        } else {
+            druid::Handled::No
+        }
     }
 }

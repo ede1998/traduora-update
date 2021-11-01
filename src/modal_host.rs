@@ -11,9 +11,9 @@ use druid::{Color, Command, Data, Rect, Selector, SingleUse, WidgetExt, WidgetPo
 pub struct ModalBuilder<T>(Box<dyn FnOnce() -> Box<dyn Widget<T>>>);
 
 impl<T: Data> ModalBuilder<T> {
-    /// Create a new `ModalBuilder
+    /// Create a new `ModalBuilder`.
     fn new<W: Widget<T> + 'static>(f: impl FnOnce() -> W + 'static) -> Self {
-        ModalBuilder(Box::new(|| f().boxed()))
+        Self(Box::new(|| f().boxed()))
     }
 
     fn build(self) -> Box<dyn Widget<T>> {
@@ -49,7 +49,7 @@ impl<T: Data> ModalHost<T> {
     }
 
     pub fn new(widget: impl Widget<T> + 'static) -> Self {
-        ModalHost {
+        Self {
             child: WidgetPod::new(widget.boxed()),
             modal: None,
         }

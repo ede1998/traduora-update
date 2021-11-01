@@ -19,7 +19,7 @@ pub struct Translation {
 }
 
 impl Translation {
-    fn added(term: String, translation: String) -> Self {
+    pub fn added(term: String, translation: String) -> Self {
         Self {
             term,
             translation,
@@ -27,14 +27,14 @@ impl Translation {
         }
     }
 
-    fn removed(term: String, translation: String, term_id: TermId) -> Self {
+    pub fn removed(term: String, translation: String, term_id: TermId) -> Self {
         Self {
             term,
             translation,
             modification: Modification::Removed(term_id),
         }
     }
-    fn updated(term: String, translation: String, term_id: TermId) -> Self {
+    pub fn updated(term: String, translation: String, term_id: TermId) -> Self {
         Self {
             term,
             translation,

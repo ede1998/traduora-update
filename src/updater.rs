@@ -1,6 +1,7 @@
-use crate::layout::{Added, AppState, ModificationEntry, Removed, Updated};
+use crate::loader::{Modification, Translation};
 
-use anyhow::{Context, Result};
+use anyhow::Context;
+use traduora::api::TermId;
 use traduora::{
     api::{
         terms::{CreateTerm, DeleteTerm},
@@ -10,68 +11,68 @@ use traduora::{
     Query, Traduora,
 };
 
-fn update(entry: &ModificationEntry<Updated>, client: &Traduora<Authenticated>) -> Result<()> {
+fn update(
+    term: TermId,
+    translation: String,
+    client: &Traduora<Authenticated>,
+) -> Result<(), (String, anyhow::Error)> {
     use crate::config::*;
-    let endpoint = EditTranslation::new(
-        PROJECT_ID.into(),
-        LOCALE.into(),
-        entry.modification.0.clone(),
-        entry.translation.clone(),
-    );
+    let endpoint = EditTranslation::new(PROJECT_ID.into(), LOCALE.into(), term, translation);
 
-    endpoint.query(client).with_context(|| {
-        format!(
-            "Failed to update term {:?} to translation {:?}.",
-            entry.term, entry.translation
-        )
-    })?;
-
-    Ok(())
-}
-
-fn remove(entry: &ModificationEntry<Removed>, client: &Traduora<Authenticated>) -> Result<()> {
-    use crate::config::*;
-    let endpoint = DeleteTerm::new(PROJECT_ID.into(), entry.modification.0.clone());
     endpoint
         .query(client)
-        .with_context(|| format!("Failed to delete term {:?}.", entry.term))?;
+        .with_context(|| {
+            format!(
+                "Failed to update term {:?} to translation {:?}.",
+                endpoint.term_id, endpoint.value
+            )
+        })
+        .map_err(|e| (endpoint.value, e))?;
 
     Ok(())
 }
 
-fn add(entry: &ModificationEntry<Added>, client: &Traduora<Authenticated>) -> Result<()> {
+fn remove(term: TermId, client: &Traduora<Authenticated>) -> anyhow::Result<()> {
     use crate::config::*;
-    let endpoint = CreateTerm::new(entry.term.clone(), PROJECT_ID);
-    let term = endpoint
+    let endpoint = DeleteTerm::new(PROJECT_ID.into(), term);
+    endpoint
         .query(client)
-        .with_context(|| format!("Failed to create term {:?}.", entry.term))?;
+        .with_context(|| format!("Failed to delete term {:?}.", endpoint.term_id))?;
 
-    let endpoint = EditTranslation::new(
-        PROJECT_ID.into(),
-        LOCALE.into(),
-        term.id,
-        entry.translation.clone(),
-    );
+    Ok(())
+}
 
-    endpoint.query(client).with_context(|| {
-        format!(
-            "Failed to set translation {:?} for new term.",
-            entry.translation
-        )
-    })?;
+fn add(
+    term: String,
+    translation: String,
+    client: &Traduora<Authenticated>,
+) -> Result<(), (String, String, anyhow::Error)> {
+    use crate::config::*;
+    let creator = CreateTerm::new(term, PROJECT_ID);
+    let term = creator
+        .query(client)
+        .with_context(|| format!("Failed to create term {:?}.", creator.term))
+        .map_err(|e| (creator.term.clone(), translation.clone(), e))?;
+
+    let editor = EditTranslation::new(PROJECT_ID.into(), LOCALE.into(), term.id, translation);
+
+    editor
+        .query(client)
+        .with_context(|| format!("Failed to set translation {:?} for new term.", editor.value))
+        .map_err(|e| (creator.term, editor.value, e))?;
 
     Ok(())
 }
 
 #[derive(Debug)]
-pub enum Error<'a> {
+pub enum Error {
     ClientCreation(anyhow::Error),
-    Update(Vec<(&'a str, &'a str, anyhow::Error)>),
+    Update(Vec<(String, String, anyhow::Error)>),
 }
 
-impl<'a> std::error::Error for Error<'a> {}
+impl std::error::Error for Error {}
 
-impl<'a> std::fmt::Display for Error<'a> {
+impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Error::ClientCreation(e) => write!(f, "Failed to create client: {}", e),
@@ -90,31 +91,32 @@ impl<'a> std::fmt::Display for Error<'a> {
     }
 }
 
-pub fn run(state: &AppState) -> std::result::Result<(), Error> {
-    let client = crate::config::create_client().map_err(Error::ClientCreation)?;
-    let added = state.added.entries.iter().filter_map(|e| {
-        e.active
-            .then(|| add(e, &client))
-            .and_then(|r| r.err())
-            .map(|err| (e.term.as_str(), e.translation.as_str(), err))
-    });
-    let updated = state.updated.entries.iter().filter_map(|e| {
-        e.active
-            .then(|| update(e, &client))
-            .and_then(|r| r.err())
-            .map(|err| (e.term.as_str(), e.translation.as_str(), err))
-    });
-    let removed = state.removed.entries.iter().filter_map(|e| {
-        e.active
-            .then(|| remove(e, &client))
-            .and_then(|r| r.err())
-            .map(|err| (e.term.as_str(), e.translation.as_str(), err))
-    });
-    let data: Vec<_> = added.chain(removed).chain(updated).collect();
+pub type UpdateResult = Result<(), Error>;
 
-    if data.is_empty() {
+pub fn run(translations: Vec<Translation>, mut progress: impl FnMut(usize, usize)) -> UpdateResult {
+    let client = crate::config::create_client().map_err(Error::ClientCreation)?;
+    let total = translations.len();
+
+    let errors: Vec<_> = translations
+        .into_iter()
+        .enumerate()
+        .filter_map(|(count, t)| {
+            progress(count + 1, total);
+            match t.modification {
+                Modification::Removed(term_id) => remove(term_id, &client)
+                    .err()
+                    .map(|e| (t.term, t.translation, e)),
+                Modification::Updated(term_id) => update(term_id, t.translation, &client)
+                    .err()
+                    .map(|(tl, e)| (t.term, tl, e)),
+                Modification::Added => add(t.term, t.translation, &client).err(),
+            }
+        })
+        .collect();
+
+    if errors.is_empty() {
         Ok(())
     } else {
-        Err(Error::Update(data))
+        Err(Error::Update(errors))
     }
 }
