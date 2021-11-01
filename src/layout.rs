@@ -1,7 +1,7 @@
-use druid::im;
 use druid::widget::{
     Button, Checkbox, Controller, Flex, Label, List, Scroll, Tabs, TabsTransition,
 };
+use druid::{im, AppDelegate, WindowDesc, WindowId};
 use druid::{Data, Lens};
 use druid::{Env, Widget, WidgetExt};
 use traduora::api::TermId;
@@ -43,6 +43,7 @@ pub struct AppState {
     pub added: TabData<Added>,
     pub removed: TabData<Removed>,
     pub updated: TabData<Updated>,
+    popup: PopupState,
 }
 
 #[derive(Clone, Debug, Data, Lens)]
@@ -195,8 +196,10 @@ pub fn build_ui() -> impl Widget<AppState> {
             10.,
         )
         .with_child(Button::new("Update terms").padding(10.).on_click(
-            |_ctx, data: &mut AppState, _env| {
-                let _ = crate::updater::run(data);
+            |ctx, data: &mut AppState, _env| {
+                data.popup.waiting_for_open = true;
+                ctx.new_window(build_popup_window());
+                //let _ = crate::updater::run(data);
             },
         ))
 }
@@ -227,5 +230,62 @@ pub fn build_app_state(translations: impl IntoIterator<Item = Translation>) -> A
         added: added.into(),
         removed: removed.into(),
         updated: updated.into(),
+        ..Default::default()
     }
+}
+
+pub struct Delegate;
+
+impl AppDelegate<AppState> for Delegate {
+    fn event(
+        &mut self,
+        _: &mut druid::DelegateCtx,
+        window_id: druid::WindowId,
+        event: druid::Event,
+        data: &mut AppState,
+        _: &Env,
+    ) -> Option<druid::Event> {
+        data.popup
+            .window
+            .map(|w| w == window_id)
+            .unwrap_or(true)
+            .then(|| event)
+    }
+
+    fn window_removed(
+        &mut self,
+        id: druid::WindowId,
+        data: &mut AppState,
+        _: &Env,
+        _: &mut druid::DelegateCtx,
+    ) {
+        if data.popup.window == Some(id) {
+            data.popup.window = None;
+            data.popup.waiting_for_open = false;
+        }
+    }
+
+    fn window_added(
+        &mut self,
+        id: WindowId,
+        data: &mut AppState,
+        _: &Env,
+        _: &mut druid::DelegateCtx,
+    ) {
+        if data.popup.waiting_for_open {
+            data.popup.window = Some(id);
+            data.popup.waiting_for_open = false;
+        }
+    }
+}
+
+#[derive(Clone, Lens, Default, Data)]
+struct PopupState {
+    #[data(same_fn = "PartialEq::eq")]
+    window: Option<WindowId>,
+    waiting_for_open: bool,
+}
+
+fn build_popup_window() -> WindowDesc<AppState> {
+    WindowDesc::new(|| Label::new("bal")).title("Blasda")
 }

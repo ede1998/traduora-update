@@ -13,6 +13,7 @@ fn main() -> Result<(), PlatformError> {
     let state = layout::build_app_state(data);
     let main_window = WindowDesc::new(layout::build_ui);
     AppLauncher::with_window(main_window)
+        .delegate(layout::Delegate)
         .use_simple_logger()
         .launch(state)
 }
