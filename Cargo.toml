@@ -9,6 +9,7 @@ edition = "2021"
 anyhow = "1.0.44"
 druid = { version = "0.7.0", features = ["im"] }
 itertools = "0.10.1"
+log = "0.4.14"
 serde = "1.0.130"
 serde_json = "1.0.68"
 traduora = "0.1.0"

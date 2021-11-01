@@ -1965,6 +1965,7 @@ dependencies = [
  "anyhow",
  "druid",
  "itertools 0.10.1",
+ "log",
  "serde",
  "serde_json",
  "traduora",

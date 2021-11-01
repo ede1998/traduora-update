@@ -6,6 +6,7 @@ use druid::{AppLauncher, PlatformError, WindowDesc};
 mod config;
 mod layout;
 mod loader;
+mod modal_host;
 mod updater;
 
 fn main() -> Result<(), PlatformError> {

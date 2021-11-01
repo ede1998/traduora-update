@@ -1,12 +1,14 @@
-use druid::im;
 use druid::widget::{
-    Button, Checkbox, Controller, Flex, Label, List, Scroll, Tabs, TabsTransition,
+    Button, Checkbox, Container, Controller, Flex, Label, List, ProgressBar, Scroll, Spinner, Tabs,
+    TabsTransition,
 };
+use druid::{im, theme, Color};
 use druid::{Data, Lens};
 use druid::{Env, Widget, WidgetExt};
 use traduora::api::TermId;
 
 use crate::loader::{Modification, Translation};
+use crate::modal_host::ModalHost;
 
 #[derive(Data, Clone, Lens)]
 pub struct TabData<T> {
@@ -43,6 +45,7 @@ pub struct AppState {
     pub added: TabData<Added>,
     pub removed: TabData<Removed>,
     pub updated: TabData<Updated>,
+    progress: f64,
 }
 
 #[derive(Clone, Debug, Data, Lens)]
@@ -185,7 +188,7 @@ where
 }
 
 pub fn build_ui() -> impl Widget<AppState> {
-    Flex::column()
+    let main_view = Flex::column()
         .with_flex_child(
             Tabs::new()
                 .with_transition(TabsTransition::Instant)
@@ -195,10 +198,25 @@ pub fn build_ui() -> impl Widget<AppState> {
             10.,
         )
         .with_child(Button::new("Update terms").padding(10.).on_click(
-            |_ctx, data: &mut AppState, _env| {
-                let _ = crate::updater::run(data);
+            |ctx, data: &mut AppState, _env| {
+                let cmd = ModalHost::make_modal_command(build_popup);
+                ctx.submit_command(cmd);
+                //let _ = crate::updater::run(data);
             },
-        ))
+        ));
+
+    ModalHost::new(main_view)
+}
+
+fn build_popup() -> impl Widget<AppState> {
+    Flex::column()
+        .with_child(Label::new("Uploading terms."))
+        .with_default_spacer()
+        .with_child(Spinner::new())
+        .with_default_spacer()
+        .with_child(ProgressBar::new().lens(AppState::progress))
+        .padding(16.0)
+        .background(theme::BACKGROUND_DARK)
 }
 
 pub fn build_app_state(translations: impl IntoIterator<Item = Translation>) -> AppState {
@@ -227,5 +245,6 @@ pub fn build_app_state(translations: impl IntoIterator<Item = Translation>) -> A
         added: added.into(),
         removed: removed.into(),
         updated: updated.into(),
+        ..Default::default()
     }
 }
