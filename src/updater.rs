@@ -16,8 +16,9 @@ fn update(
     translation: String,
     client: &Traduora<Authenticated>,
 ) -> Result<(), (String, anyhow::Error)> {
-    use crate::config::*;
-    let endpoint = EditTranslation::new(PROJECT_ID.into(), LOCALE.into(), term, translation);
+    let project_id = crate::config::get().project_id();
+    let locale = crate::config::get().locale();
+    let endpoint = EditTranslation::new(project_id.clone(), locale.clone(), term, translation);
 
     endpoint
         .query(client)
@@ -33,8 +34,8 @@ fn update(
 }
 
 fn remove(term: TermId, client: &Traduora<Authenticated>) -> anyhow::Result<()> {
-    use crate::config::*;
-    let endpoint = DeleteTerm::new(PROJECT_ID.into(), term);
+    let project_id = crate::config::get().project_id();
+    let endpoint = DeleteTerm::new(project_id.clone(), term);
     endpoint
         .query(client)
         .with_context(|| format!("Failed to delete term {:?}.", endpoint.term_id))?;
@@ -47,14 +48,15 @@ fn add(
     translation: String,
     client: &Traduora<Authenticated>,
 ) -> Result<(), (String, String, anyhow::Error)> {
-    use crate::config::*;
-    let creator = CreateTerm::new(term, PROJECT_ID);
+    let project_id = crate::config::get().project_id();
+    let locale = crate::config::get().locale();
+    let creator = CreateTerm::new(term, project_id.clone());
     let term = creator
         .query(client)
         .with_context(|| format!("Failed to create term {:?}.", creator.term))
         .map_err(|e| (creator.term.clone(), translation.clone(), e))?;
 
-    let editor = EditTranslation::new(PROJECT_ID.into(), LOCALE.into(), term.id, translation);
+    let editor = EditTranslation::new(project_id.clone(), locale.clone(), term.id, translation);
 
     editor
         .query(client)

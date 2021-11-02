@@ -1,0 +1,10 @@
+{
+	"mail": "test@test.test",
+	"password": "12345678",
+	"host": "localhost:8080",
+	"project_id": "92047938-c050-4d9c-83f8-6b1d7fae6b01",
+	"translation_file": "testdata/en.json",
+	"locale": "en",
+	"with_ssl": false,
+	"validate_certs": false
+}

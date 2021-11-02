@@ -10,6 +10,13 @@ mod modal_host;
 mod updater;
 
 fn main() -> Result<(), PlatformError> {
+    match config::init() {
+        Ok(_) => run(),
+        Err(e) => run_without_config(e),
+    }
+}
+
+fn run() -> Result<(), PlatformError> {
     let data = loader::load_data().unwrap();
     let state = layout::AppState::build(data);
     let main_window = WindowDesc::new(layout::build_ui);
@@ -17,4 +24,11 @@ fn main() -> Result<(), PlatformError> {
         .delegate(layout::Delegate)
         .use_simple_logger()
         .launch(state)
+}
+
+fn run_without_config(err: anyhow::Error) -> Result<(), PlatformError> {
+    let window = WindowDesc::new(layout::build_ui_load_config_failed);
+    AppLauncher::with_window(window)
+        .use_simple_logger()
+        .launch(err.into())
 }

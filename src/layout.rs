@@ -238,7 +238,7 @@ impl<T> DisplayString for ModificationEntry<T> {
 
 impl DisplayString for (String, String, anyhow::Error) {
     fn display_string(&self) -> String {
-        format!("{} ==> {}: {}", self.0, self.1, self.2)
+        format!("{} ==> {}: {:?}", self.0, self.1, self.2)
     }
 }
 
@@ -443,4 +443,25 @@ impl AppDelegate<AppState> for Delegate {
             druid::Handled::No
         }
     }
+}
+
+#[derive(Debug, Clone, Data)]
+pub struct AppStateError(Arc<anyhow::Error>);
+
+impl From<anyhow::Error> for AppStateError {
+    fn from(f: anyhow::Error) -> Self {
+        Self(Arc::new(f))
+    }
+}
+
+pub fn build_ui_load_config_failed() -> impl Widget<AppStateError> {
+    Flex::column()
+        .with_child(Label::new(
+            "Failed to load config. Please fix the error and restart the application.",
+        ))
+        .with_default_spacer()
+        .with_flex_child(
+            Label::new(|state: &AppStateError, _: &_| format!("{:?}", state.0)),
+            1.,
+        )
 }

@@ -36,17 +36,19 @@ impl From<(Term, String)> for Translation {
 pub fn fetch_from_traduora() -> Result<Vec<Translation>> {
     use crate::config::*;
     let client = create_client()?;
+    let project_id = crate::config::get().project_id();
+    let locale = crate::config::get().locale();
 
-    let mut terms = Terms(PROJECT_ID.into())
+    let mut terms = Terms(project_id.clone())
         .query(&client)
-        .with_context(|| format!("Failed to load terms for project {:?}", PROJECT_ID))?;
+        .with_context(|| format!("Failed to load terms for project {:?}", project_id))?;
 
-    let mut translations = Translations::new(PROJECT_ID.into(), LOCALE.into())
+    let mut translations = Translations::new(project_id.clone(), locale.clone())
         .query(&client)
         .with_context(|| {
             format!(
                 "Failed to load translations for locale {:?} in project {:?}",
-                LOCALE, PROJECT_ID
+                locale, project_id
             )
         })?;
 

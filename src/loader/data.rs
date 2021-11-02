@@ -66,7 +66,7 @@ fn merge(
 }
 
 pub fn load_data() -> Result<Vec<Translation>> {
-    let local = local::load_from_file("testdata/en.json")?;
+    let local = local::load_from_file(crate::config::get().translation_file())?;
     let remote = remote::fetch_from_traduora()?;
     Ok(merge(local, remote))
 }
