@@ -19,7 +19,7 @@ fn main() -> Result<(), PlatformError> {
 fn run() -> Result<(), PlatformError> {
     let data = loader::load_data().unwrap();
     let state = layout::AppState::build(data);
-    let main_window = WindowDesc::new(layout::build_ui);
+    let main_window = WindowDesc::new(layout::build_ui).title("Traduora-Update");
     AppLauncher::with_window(main_window)
         .delegate(layout::Delegate)
         .use_simple_logger()
@@ -27,7 +27,7 @@ fn run() -> Result<(), PlatformError> {
 }
 
 fn run_without_config(err: anyhow::Error) -> Result<(), PlatformError> {
-    let window = WindowDesc::new(layout::build_ui_load_config_failed);
+    let window = WindowDesc::new(layout::build_ui_load_config_failed).title("Traduora-Update");
     AppLauncher::with_window(window)
         .use_simple_logger()
         .launch(err.into())

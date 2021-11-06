@@ -72,8 +72,15 @@ fn merge(
                 }) |
                 // deleted in local translations and traduora, only exists in history -> we are done already
                 EitherOrBoth::Right(_) => None,
-                // term exists in git -> removal was explicit, everything else is ok anyway
-                EitherOrBoth::Both(t, _) |
+                EitherOrBoth::Both(t, g) => match t.modification {
+                    // term exists in git -> removal was explicit
+                    Modification::Removed(_) => Some(t),
+                    // Term exists locally and in git but not in Traduora -> term removed elsewhere
+                    Modification::Added => None,
+                    // Translations differ in Traduora and locally but git is same as local -> translation changed elsewhere
+                    // Translations differ in Traduora and locally but git is different than local -> translation changed locally
+                    Modification::Updated(_) => (t.translation != g.translation).then(|| t),
+                },
                 // term does not exist in git but was not removed, git is too old to know term -> no git data to double check with
                 EitherOrBoth::Left(t) => Some(t),
             }
