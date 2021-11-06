@@ -454,10 +454,10 @@ impl From<anyhow::Error> for AppStateError {
     }
 }
 
-pub fn build_ui_load_config_failed() -> impl Widget<AppStateError> {
+pub fn build_ui_startup_failed() -> impl Widget<AppStateError> {
     Flex::column()
         .with_child(Label::new(
-            "Failed to load config. Please fix the error and restart the application.",
+            "Failed to start. Please fix the error and restart the application.",
         ))
         .with_default_spacer()
         .with_flex_child(

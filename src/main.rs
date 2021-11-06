@@ -10,14 +10,14 @@ mod modal_host;
 mod updater;
 
 fn main() -> Result<(), PlatformError> {
-    match config::init() {
-        Ok(_) => run(),
-        Err(e) => run_without_config(e),
+    let config_result = config::init();
+    match config_result.and_then(|_| loader::load_data()) {
+        Ok(data) => run(data),
+        Err(e) => run_startup_failed(e),
     }
 }
 
-fn run() -> Result<(), PlatformError> {
-    let data = loader::load_data().unwrap();
+fn run(data: Vec<loader::Translation>) -> Result<(), PlatformError> {
     let state = layout::AppState::build(data);
     let main_window = WindowDesc::new(layout::build_ui).title("Traduora-Update");
     AppLauncher::with_window(main_window)
@@ -26,8 +26,8 @@ fn run() -> Result<(), PlatformError> {
         .launch(state)
 }
 
-fn run_without_config(err: anyhow::Error) -> Result<(), PlatformError> {
-    let window = WindowDesc::new(layout::build_ui_load_config_failed).title("Traduora-Update");
+fn run_startup_failed(err: anyhow::Error) -> Result<(), PlatformError> {
+    let window = WindowDesc::new(layout::build_ui_startup_failed).title("Traduora-Update");
     AppLauncher::with_window(window)
         .use_simple_logger()
         .launch(err.into())
