@@ -2,6 +2,13 @@
 name = "traduora-update"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.56"
+description = "A GUI application to automatically update Traduora terms from a local translation file"
+repository = "https://www.github.com/ede1998/traduora-update"
+homepage = "https://www.github.com/ede1998/traduora-update"
+keywords = ["traduora", "localization"]
+license = "Apache-2.0"
+categories = ["localization"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
