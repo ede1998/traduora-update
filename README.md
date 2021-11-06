@@ -9,7 +9,7 @@ Only the terms that are selected are updated.
 
 ## Configuration
 
-Configuration happens via JSON file. It takes the following form:
+Configuration happens via JSON file. It takes the following form: (Please remove to comments before using this configuration file, comments are not valid JSON):
 ```JSON
 {
 	"host": "localhost:8080", // URL to access the Traduora instance
