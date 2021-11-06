@@ -1,6 +1,6 @@
 # Traduora-Update
 
-This application allows the automatic update of Traduora terms from a local translation file to a Traduora instance.
+This application allows the automatic update of [Traduora](https://traduora.co/) terms from a local translation file to a Traduora instance.
 
 ![Select terms to update](images/screenshot_1.png)
 ![Updating terms](images/screenshot_2.png)
