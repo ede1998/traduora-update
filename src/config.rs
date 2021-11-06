@@ -35,6 +35,7 @@ pub struct AppConfig {
     project_id: ProjectId,
     with_ssl: bool,
     validate_certs: bool,
+    #[serde(default)]
     revision: String,
 }
 

@@ -90,8 +90,14 @@ fn merge(
 
 pub fn load_data() -> Result<Vec<Translation>> {
     let translation_file = crate::config::get().translation_file();
+    let revision = crate::config::get().revision();
+
     let local = local::load_from_file(translation_file)?;
     let remote = remote::fetch_from_traduora()?;
-    let git = local::load_from_git(crate::config::get().revision(), translation_file)?;
+    let git = if revision.is_empty() {
+        Vec::new()
+    } else {
+        local::load_from_git(revision, translation_file)?
+    };
     Ok(merge(local, remote, git))
 }
