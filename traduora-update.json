@@ -6,5 +6,6 @@
 	"translation_file": "testdata/en.json",
 	"locale": "en",
 	"with_ssl": false,
-	"validate_certs": false
+	"validate_certs": false,
+	"revision": "9011cdcd095d156c6a7e34182fdcba144ab1789a"
 }

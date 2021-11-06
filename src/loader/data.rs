@@ -1,5 +1,5 @@
 use anyhow::Result;
-use itertools::{EitherOrBoth, Itertools};
+use itertools::{merge_join_by, EitherOrBoth, Itertools};
 use traduora::api::TermId;
 
 use super::{local, remote};
@@ -46,12 +46,12 @@ impl Translation {
 fn merge(
     mut local: Vec<local::Translation>,
     mut remote: Vec<remote::Translation>,
+    mut git: Vec<local::Translation>,
 ) -> Vec<Translation> {
     local.sort_unstable_by(local::Translation::cmp_by_term);
     remote.sort_unstable_by(remote::Translation::cmp_by_term);
-    local
-        .into_iter()
-        .merge_join_by(remote, |l, r| l.term.cmp(&r.term))
+    git.sort_unstable_by(local::Translation::cmp_by_term);
+    merge_join_by(local, remote, |l, r| l.term.cmp(&r.term))
         .filter_map(|e| match e {
             EitherOrBoth::Both(local, remote) => (local.translation != remote.translation)
                 .then(|| Translation::updated(local.term, local.translation, remote.term_id)),
@@ -62,11 +62,29 @@ fn merge(
                 remote.term_id,
             )),
         })
+        .merge_join_by(git, |t, g| t.term.cmp(&g.term))
+        .filter_map(|e: EitherOrBoth<_, _>| {
+            match e {
+                // term does not exist in history and local file but on Traduora -> probably added from elsewhere
+                EitherOrBoth::Left(Translation {
+                    modification: Modification::Removed(_),
+                    ..
+                }) |
+                // deleted in local translations and traduora, only exists in history -> we are done already
+                EitherOrBoth::Right(_) => None,
+                // term exists in git -> removal was explicit, everything else is ok anyway
+                EitherOrBoth::Both(t, _) |
+                // term does not exist in git but was not removed, git is too old to know term -> no git data to double check with
+                EitherOrBoth::Left(t) => Some(t),
+            }
+        })
         .collect()
 }
 
 pub fn load_data() -> Result<Vec<Translation>> {
-    let local = local::load_from_file(crate::config::get().translation_file())?;
+    let translation_file = crate::config::get().translation_file();
+    let local = local::load_from_file(translation_file)?;
     let remote = remote::fetch_from_traduora()?;
-    Ok(merge(local, remote))
+    let git = local::load_from_git(crate::config::get().revision(), translation_file)?;
+    Ok(merge(local, remote, git))
 }

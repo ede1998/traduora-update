@@ -35,6 +35,7 @@ pub struct AppConfig {
     project_id: ProjectId,
     with_ssl: bool,
     validate_certs: bool,
+    revision: String,
 }
 
 impl AppConfig {
@@ -71,6 +72,11 @@ impl AppConfig {
     /// Get a reference to the app config's validate certs.
     pub fn validate_certs(&self) -> bool {
         self.validate_certs
+    }
+
+    /// Get a reference to the app config's revision.
+    pub fn revision(&self) -> &str {
+        self.revision.as_ref()
     }
 }
 
