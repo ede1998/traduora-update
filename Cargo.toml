@@ -15,6 +15,8 @@ categories = ["localization"]
 [dependencies]
 anyhow = "1.0.44"
 druid = { version = "0.7.0", features = ["im"] }
+encoding_rs = "0.8.29"
+env_logger = "0.9.0"
 git2 = "0.13.23"
 itertools = "0.10.1"
 log = "0.4.14"

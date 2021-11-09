@@ -10,6 +10,7 @@ mod modal_host;
 mod updater;
 
 fn main() -> Result<(), PlatformError> {
+    env_logger::init();
     let config_result = config::init();
     match config_result.and_then(|_| loader::load_data()) {
         Ok(data) => run(data),
