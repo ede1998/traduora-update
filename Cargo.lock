@@ -2009,9 +2009,9 @@ dependencies = [
 
 [[package]]
 name = "traduora"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ea5c1ea2d4d4e8f25e77cbf6d1401add1ac265172109b7664c05c557c784f86"
+checksum = "4031c34ed472af7167acbe2814bb96ee3dc089abb2eba1ce276a0866c2e252f9"
 dependencies = [
  "async-trait",
  "bytes",
