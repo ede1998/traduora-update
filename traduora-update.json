@@ -7,5 +7,6 @@
 	"locale": "en",
 	"with_ssl": false,
 	"validate_certs": false,
-	"revision": "9011cdcd095d156c6a7e34182fdcba144ab1789a"
+	"revision": "9011cdcd095d156c6a7e34182fdcba144ab1789a",
+	"encoding": "utf-8"
 }

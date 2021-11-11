@@ -23,17 +23,10 @@ pub fn load_from_file<P>(path: P) -> Result<Vec<Translation>>
 where
     P: AsRef<Path>,
 {
-    let data = fs::read_to_string(&path)
+    let data = fs::read(&path)
         .with_context(|| format!("Failed to open file {}", path.as_ref().display()))?;
 
-    Ok(serde_json::from_str::<DeserializationHelper>(&data)
-        .with_context(|| {
-            format!(
-                "Failed to deserialize terms and translations from file {}.",
-                path.as_ref().display()
-            )
-        })?
-        .0)
+    parse(&data).with_context(|| format!("Failed to load file {}", path.as_ref().display()))
 }
 
 pub fn load_from_git<P>(revision: &str, path: P) -> Result<Vec<Translation>>
@@ -42,34 +35,48 @@ where
 {
     use git2::Repository;
 
-    let repo = Repository::discover(&path).with_context(|| "Failed to discover git repository.")?;
-    let revision = repo
-        .revparse_single(revision)
-        .with_context(|| format!("Failed to find revision {:?}.", revision))?;
-    let tree = revision
-        .peel_to_tree()
-        .with_context(|| format!("Failed to get file tree for revision {:?}.", revision))?;
-    let tree_entry = tree.get_path(path.as_ref()).with_context(|| {
-        format!(
-            "Failed to find the path {:?} in the file tree of revision {:?}",
-            path.as_ref().display(),
-            revision
-        )
-    })?;
     let fun = || -> Result<Vec<Translation>> {
-        let blob = tree_entry.to_object(&repo)?.peel_to_blob()?;
-        let content = std::str::from_utf8(blob.content())?;
-        let result: DeserializationHelper = serde_json::from_str(content)?;
-        Ok(result.0)
+        let repo = Repository::discover(&path).context("Failed to discover git repository.")?;
+
+        let revision = repo
+            .revparse_single(revision)
+            .with_context(|| format!("Failed to find revision {:?}.", revision))?;
+
+        let blob = revision
+            .peel_to_tree()?
+            .get_path(path.as_ref())?
+            .to_object(&repo)?
+            .peel_to_blob()?;
+        parse(blob.content())
     };
 
     fun().with_context(|| {
         format!(
-            "Failed the extract file for path {:?} of revision {:?}.",
+            "Failed to extract file for path {:?} of git revision {:?}.",
             path.as_ref().display(),
             revision
         )
     })
+}
+
+fn parse(data: &[u8]) -> Result<Vec<Translation>> {
+    let enc = guess_encoding(data);
+    let (data, encountered_malformeds) = enc.decode_with_bom_removal(data);
+
+    if encountered_malformeds {
+        log::warn!("Replaced some malformed characters in translation file.");
+    }
+
+    let result: DeserializationHelper =
+        serde_json::from_str(&data).context("Failed to parse translation file")?;
+    Ok(result.0)
+}
+
+fn guess_encoding(data: &[u8]) -> &'static encoding_rs::Encoding {
+    use encoding_rs::Encoding;
+    crate::config::get()
+        .encoding()
+        .unwrap_or_else(|| Encoding::for_bom(data).map_or(encoding_rs::UTF_8, |x| x.0))
 }
 
 struct DeserializationHelper(Vec<Translation>);
@@ -123,11 +130,28 @@ mod tests {
     }
 
     #[test]
-    fn let_me_try() {
+    fn read_from_git_branch_tag_commit() {
         let branch = load_from_git("foo", "testdata/en.json").unwrap();
         let tag = load_from_git("blabla", "testdata/en.json").unwrap();
         let commit = load_from_git("01452d761e", "testdata/en.json").unwrap();
         assert_eq!(branch, tag);
         assert_eq!(branch, commit);
+    }
+
+    #[test]
+    fn decode_parse_encodings() {
+        let utf8 = include_bytes!("../../testdata/en-utf8.json");
+        let utf8bom = include_bytes!("../../testdata/en-utf8-bom.json");
+        let utf16be = include_bytes!("../../testdata/en-utf16be.json");
+        let utf16le = include_bytes!("../../testdata/en-utf16le.json");
+
+        let utf8bom = parse(utf8bom).unwrap();
+        let utf16be = parse(utf16be).unwrap();
+        let utf16le = parse(utf16le).unwrap();
+        let utf8 = parse(utf8).unwrap();
+
+        assert_eq!(utf8, utf8bom);
+        assert_eq!(utf16be, utf16le);
+        assert_eq!(utf16be, utf8);
     }
 }

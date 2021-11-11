@@ -10,7 +10,7 @@ Only the terms that are selected are updated.
 ## Configuration
 
 Configuration happens via JSON file. It takes the following form: (Please remove to comments before using this configuration file, comments are not valid JSON):
-```JSON
+```jsonc
 {
 	"host": "localhost:8080", // URL to access the Traduora instance
 	"mail": "test@test.test", // user account for Traduora login
@@ -20,6 +20,7 @@ Configuration happens via JSON file. It takes the following form: (Please remove
 	"project_id": "92047938-c050-4d9c-83f8-6b1d7fae6b01", // project that should be updated
 	"translation_file": "testdata/en.json", // path that contains the translations. Should be formatted like JSON-flat export of Traduora. Relative path from working directory.
 	"locale": "en", // locale to update
+	"encoding": "utf-8", // optional encoding of the translation file. Used for both the local version and the git version. If omitted, the tool tries to determine the encoding automatically via its byte order mark or just assumes UTF-8 on failure.
 
 	"with_ssl": true, // whether the connection to the server should be encrypted. Defaults to true.
 	"validate_certs": true, // whether the encryption certificates should be validated. Defaults to true.
