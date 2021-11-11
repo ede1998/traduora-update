@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AppConfig",
+  "type": "object",
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "mail",
+        "password"
+      ],
+      "properties": {
+        "mail": {
+          "description": "Normal user account for Traduora login",
+          "type": "string",
+          "format": "email"
+        },
+        "password": {
+          "description": "User password for Traduora login",
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "client_id",
+        "client_secret"
+      ],
+      "properties": {
+        "client_id": {
+          "description": "Id of a Traduora API client for login",
+          "type": "string"
+        },
+        "client_secret": {
+          "description": "Secret of a Traduora API client for login",
+          "type": "string"
+        }
+      }
+    }
+  ],
+  "required": [
+    "host",
+    "locale",
+    "project_id",
+    "translation_file"
+  ],
+  "properties": {
+    "encoding": {
+      "description": "Encoding of the translation file. Used for both the local version and the git version. If omitted, the tool tries to determine the encoding automatically via its byte order mark or just assumes UTF-8 on failure.",
+      "writeOnly": true,
+      "examples": [
+        "utf-8",
+        "utf-16"
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "host": {
+      "description": "URL to access the Traduora instance",
+      "type": "string",
+      "format": "uri"
+    },
+    "locale": {
+      "description": "Locale that should be updated",
+      "examples": [
+        "en",
+        "de_DE",
+        "ru"
+      ],
+      "type": "string"
+    },
+    "project_id": {
+      "description": "Id of the project that should be updated",
+      "examples": [
+        "92047938-c050-4d9c-83f8-6b1d7fae6b01"
+      ],
+      "type": "string"
+    },
+    "revision": {
+      "description": "Git revision to use for sanity checks to prevent changing terms by mistake. Can be any valid revision, e.g. commit hash, tag, branch. Should usually be your default branch. If omitted, sanity checks are skipped.",
+      "default": "",
+      "examples": [
+        "main",
+        "v2.7.41",
+        "9011cdcd095d156c6a7e34182fdcba144ab1789a"
+      ],
+      "type": "string"
+    },
+    "translation_file": {
+      "description": "Path to file that contains the translations. Should be formatted like JSON-flat export of Traduora. Relative path from working directory.",
+      "type": "string"
+    },
+    "validate_certs": {
+      "description": "Whether the encryption certificates should be validated. Defaults to true.",
+      "default": true,
+      "type": "boolean"
+    },
+    "with_ssl": {
+      "description": "Whether the connection to the server should be encrypted. Defaults to true.",
+      "default": true,
+      "type": "boolean"
+    }
+  }
+}

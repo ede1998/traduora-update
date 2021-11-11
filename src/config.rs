@@ -4,42 +4,81 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use encoding_rs::Encoding;
 use once_cell::sync::OnceCell;
-use serde::{Deserialize, Deserializer};
+use schemars::JsonSchema;
+use serde::Deserialize;
 use traduora::{
     api::{locales::LocaleCode, ProjectId},
     auth::Authenticated,
     Login, Traduora, TraduoraBuilder,
 };
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum LoginConfig {
     Password {
+        /// Normal user account for Traduora login
+        #[schemars(email)]
         mail: String,
+        /// User password for Traduora login
         password: String,
     },
     ClientCredentials {
+        /// Id of a Traduora API client for login
         client_id: String,
+        /// Secret of a Traduora API client for login
         client_secret: String,
     },
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct AppConfig {
     #[serde(flatten)]
     login: LoginConfig,
+    /// URL to access the Traduora instance
+    #[schemars(url)]
     host: String,
+    /// Locale that should be updated
+    #[schemars(
+        with = "String",
+        example = "de_helper::example::locale_en",
+        example = "de_helper::example::locale_de_de",
+        example = "de_helper::example::locale_ru"
+    )]
     locale: LocaleCode,
+    /// Path to file that contains the translations. Should be formatted like JSON-flat
+    /// export of Traduora. Relative path from working directory.
     translation_file: PathBuf,
+    /// Id of the project that should be updated
+    #[schemars(with = "String", example = "de_helper::example::project_id")]
     project_id: ProjectId,
+    /// Whether the connection to the server should be encrypted. Defaults to true.
+    #[schemars(default = "de_helper::bool_true")]
     with_ssl: bool,
+    /// Whether the encryption certificates should be validated. Defaults to true.
+    #[schemars(default = "de_helper::bool_true")]
     validate_certs: bool,
+    /// Git revision to use for sanity checks to prevent changing terms by mistake.
+    /// Can be any valid revision, e.g. commit hash, tag, branch. Should usually be
+    /// your default branch. If omitted, sanity checks are skipped.
     #[serde(default)]
+    #[schemars(
+        example = "de_helper::example::revision_branch",
+        example = "de_helper::example::revision_tag",
+        example = "de_helper::example::revision_commit"
+    )]
     revision: String,
-    #[serde(default, deserialize_with = "deserialize_encoding")]
-    encoding: Option<&'static Encoding>,
+    /// Encoding of the translation file. Used for both the local version and the git version.
+    /// If omitted, the tool tries to determine the encoding automatically via its byte order mark
+    /// or just assumes UTF-8 on failure.
+    #[serde(default, deserialize_with = "de_helper::deserialize_encoding")]
+    #[schemars(
+        with = "Option<String>",
+        skip_serializing,
+        example = "de_helper::example::encoding_utf_8",
+        example = "de_helper::example::encoding_utf_16"
+    )]
+    encoding: Option<&'static encoding_rs::Encoding>,
 }
 
 impl AppConfig {
@@ -84,35 +123,84 @@ impl AppConfig {
     }
 
     /// Get a reference to the app config's encoding.
-    pub fn encoding(&self) -> Option<&'static Encoding> {
+    pub fn encoding(&self) -> Option<&'static encoding_rs::Encoding> {
         self.encoding
     }
 }
 
-fn deserialize_encoding<'de, D>(de: D) -> std::result::Result<Option<&'static Encoding>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    use serde::de::{Error, Visitor};
-    struct Helper;
+mod de_helper {
+    use std::result::Result;
 
-    impl<'de> Visitor<'de> for Helper {
-        type Value = &'static Encoding;
+    use encoding_rs::Encoding;
+    use serde::Deserializer;
 
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-            write!(formatter, "an encoding")
+    pub fn bool_true() -> bool {
+        true
+    }
+
+    pub mod example {
+        pub fn project_id() -> &'static str {
+            "92047938-c050-4d9c-83f8-6b1d7fae6b01"
         }
 
-        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-        where
-            E: Error,
-        {
-            Encoding::for_label(value.as_bytes())
-                .ok_or_else(|| Error::custom("Failed to parse encoding."))
+        pub fn locale_en() -> &'static str {
+            "en"
+        }
+
+        pub fn locale_de_de() -> &'static str {
+            "de_DE"
+        }
+
+        pub fn locale_ru() -> &'static str {
+            "ru"
+        }
+
+        pub fn revision_commit() -> &'static str {
+            "9011cdcd095d156c6a7e34182fdcba144ab1789a"
+        }
+
+        pub fn revision_branch() -> &'static str {
+            "main"
+        }
+
+        pub fn revision_tag() -> &'static str {
+            "v2.7.41"
+        }
+
+        pub fn encoding_utf_8() -> &'static str {
+            "utf-8"
+        }
+
+        pub fn encoding_utf_16() -> &'static str {
+            "utf-16"
         }
     }
 
-    de.deserialize_str(Helper).map(Into::into)
+    pub fn deserialize_encoding<'de, D>(de: D) -> Result<Option<&'static Encoding>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::{Error, Visitor};
+        struct Helper;
+
+        impl<'de> Visitor<'de> for Helper {
+            type Value = &'static Encoding;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(formatter, "an encoding")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Encoding::for_label(value.as_bytes())
+                    .ok_or_else(|| Error::custom("Failed to parse encoding."))
+            }
+        }
+
+        de.deserialize_str(Helper).map(Into::into)
+    }
 }
 
 static CONFIG: OnceCell<AppConfig> = OnceCell::new();
@@ -260,5 +348,11 @@ mod tests {
     fn parse_config() {
         let config = parse("./traduora-update.json").unwrap();
         assert_eq!(encoding_rs::UTF_8, config.encoding.unwrap());
+    }
+
+    #[test]
+    fn schema() {
+        let schema = schemars::schema_for!(AppConfig);
+        println!("{}", serde_json::to_string_pretty(&schema).unwrap());
     }
 }
