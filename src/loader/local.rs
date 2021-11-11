@@ -123,7 +123,7 @@ mod tests {
     }
 
     #[test]
-    fn let_me_try() {
+    fn read_from_git_branch_tag_commit() {
         let branch = load_from_git("foo", "testdata/en.json").unwrap();
         let tag = load_from_git("blabla", "testdata/en.json").unwrap();
         let commit = load_from_git("01452d761e", "testdata/en.json").unwrap();

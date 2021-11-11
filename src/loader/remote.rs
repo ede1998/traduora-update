@@ -70,8 +70,10 @@ pub fn fetch_from_traduora() -> Result<Vec<Translation>> {
 mod tests {
     use super::fetch_from_traduora;
 
+    #[ignore = "needs access to a traduora instance"]
     #[test]
     fn fetch() {
+        crate::config::init().unwrap();
         let res = fetch_from_traduora().unwrap();
         println!("{:#?}", res);
     }
