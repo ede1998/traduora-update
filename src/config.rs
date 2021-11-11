@@ -133,15 +133,26 @@ pub fn init() -> Result<()> {
                 3. ascending directory tree and looking for traduora-update.json"
             )
         })?;
-    let config = std::fs::read_to_string(&config_file)
-        .with_context(|| format!("Failed to read config file {:?}", config_file))?;
-    let config = serde_json::from_str(&config)
-        .with_context(|| format!("Failed to parse config file {:?}", config_file))?;
+
+    let config = parse(config_file)?;
+
     CONFIG
         .set(config)
         .expect("Configuration was already loaded.");
 
     Ok(())
+}
+
+fn parse(config_file: impl AsRef<Path>) -> Result<AppConfig> {
+    use json_comments::StripComments;
+
+    let jsonc = std::fs::read_to_string(&config_file)
+        .with_context(|| format!("Failed to read config file {:?}", config_file.as_ref()))?;
+
+    let json = StripComments::new(jsonc.as_bytes());
+
+    serde_json::from_reader(json)
+        .with_context(|| format!("Failed to parse config file {:?}", config_file.as_ref()))
 }
 
 fn from_args() -> Option<PathBuf> {
@@ -247,8 +258,7 @@ mod tests {
 
     #[test]
     fn parse_config() {
-        let json = include_str!("../traduora-update.json");
-        let config: AppConfig = serde_json::from_str(json).unwrap();
+        let config = parse("./traduora-update.json").unwrap();
         assert_eq!(encoding_rs::UTF_8, config.encoding.unwrap());
     }
 }
