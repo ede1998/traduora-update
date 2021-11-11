@@ -12,7 +12,7 @@ Only the terms that are selected are updated.
 Configuration happens via JSON file. It takes the following form:
 ```jsonc
 {
-	"$schema": "https://raw.githubusercontent.com/ede1998/traduora-update/master/traduora-update.schema.json",
+	"$schema": "http://raw.githubusercontent.com/ede1998/traduora-update/master/traduora-update.schema.json",
 	"host": "localhost:8080", // URL to access the Traduora instance
 	"mail": "test@test.test", // user account for Traduora login
 	"password": "12345678", // password for Traduora login
