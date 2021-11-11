@@ -224,6 +224,24 @@ pub fn create_client() -> Result<Traduora<Authenticated>> {
 }
 
 #[cfg(test)]
+pub fn init_test() {
+    let _ = CONFIG.set(AppConfig {
+        login: LoginConfig::Password {
+            mail: "test@test.test".into(),
+            password: "12345678".into(),
+        },
+        host: "localhost:8080".into(),
+        locale: "en".into(),
+        translation_file: "testdata/en.json".into(),
+        project_id: "92047938-c050-4d9c-83f8-6b1d7fae6b01".into(),
+        with_ssl: false,
+        validate_certs: false,
+        revision: String::new(),
+        encoding: None,
+    });
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

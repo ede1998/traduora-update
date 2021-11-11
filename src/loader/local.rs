@@ -119,6 +119,7 @@ mod tests {
 
     #[test]
     fn read_from_file() {
+        crate::config::init_test();
         let res = load_from_file("testdata/en.json").unwrap();
         println!("{:#?}", res);
         assert_eq!(res.len(), 20);
@@ -131,6 +132,7 @@ mod tests {
 
     #[test]
     fn read_from_git_branch_tag_commit() {
+        crate::config::init_test();
         let branch = load_from_git("foo", "testdata/en.json").unwrap();
         let tag = load_from_git("blabla", "testdata/en.json").unwrap();
         let commit = load_from_git("01452d761e", "testdata/en.json").unwrap();
@@ -140,6 +142,7 @@ mod tests {
 
     #[test]
     fn decode_parse_encodings() {
+        crate::config::init_test();
         let utf8 = include_bytes!("../../testdata/en-utf8.json");
         let utf8bom = include_bytes!("../../testdata/en-utf8-bom.json");
         let utf16be = include_bytes!("../../testdata/en-utf16be.json");
