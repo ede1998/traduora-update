@@ -4,8 +4,9 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use encoding_rs::Encoding;
 use once_cell::sync::OnceCell;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use traduora::{
     api::{locales::LocaleCode, ProjectId},
     auth::Authenticated,
@@ -37,6 +38,8 @@ pub struct AppConfig {
     validate_certs: bool,
     #[serde(default)]
     revision: String,
+    #[serde(default, deserialize_with = "deserialize_encoding")]
+    encoding: Option<&'static Encoding>,
 }
 
 impl AppConfig {
@@ -79,6 +82,37 @@ impl AppConfig {
     pub fn revision(&self) -> &str {
         self.revision.as_ref()
     }
+
+    /// Get a reference to the app config's encoding.
+    pub fn encoding(&self) -> Option<&'static Encoding> {
+        self.encoding
+    }
+}
+
+fn deserialize_encoding<'de, D>(de: D) -> std::result::Result<Option<&'static Encoding>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::{Error, Visitor};
+    struct Helper;
+
+    impl<'de> Visitor<'de> for Helper {
+        type Value = &'static Encoding;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(formatter, "an encoding")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            Encoding::for_label(value.as_bytes())
+                .ok_or_else(|| Error::custom("Failed to parse encoding."))
+        }
+    }
+
+    de.deserialize_str(Helper).map(Into::into)
 }
 
 static CONFIG: OnceCell<AppConfig> = OnceCell::new();
@@ -187,4 +221,16 @@ pub fn create_client() -> Result<Traduora<Authenticated>> {
                 user
             )
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_config() {
+        let json = include_str!("../traduora-update.json");
+        let config: AppConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(encoding_rs::UTF_8, config.encoding.unwrap());
+    }
 }

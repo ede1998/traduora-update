@@ -73,9 +73,10 @@ fn parse(data: &[u8]) -> Result<Vec<Translation>> {
 }
 
 fn guess_encoding(data: &[u8]) -> &'static encoding_rs::Encoding {
-    encoding_rs::Encoding::for_bom(data)
-        .map(|x| x.0)
-        .unwrap_or(encoding_rs::UTF_8)
+    use encoding_rs::Encoding;
+    crate::config::get()
+        .encoding()
+        .unwrap_or_else(|| Encoding::for_bom(data).map_or(encoding_rs::UTF_8, |x| x.0))
 }
 
 struct DeserializationHelper(Vec<Translation>);
