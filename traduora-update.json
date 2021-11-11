@@ -1,4 +1,5 @@
 {
+	"$schema": "./traduora-update.schema.json",
 	"mail": "test@test.test", // URL to access the Traduora instance
 	"password": "12345678", // user account for Traduora login
 	"host": "localhost:8080", // password for Traduora login
