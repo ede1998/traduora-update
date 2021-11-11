@@ -60,6 +60,7 @@ where
 }
 
 fn parse(data: &[u8]) -> Result<Vec<Translation>> {
+    use json_comments::StripComments;
     let enc = guess_encoding(data);
     let (data, encountered_malformeds) = enc.decode_with_bom_removal(data);
 
@@ -67,8 +68,10 @@ fn parse(data: &[u8]) -> Result<Vec<Translation>> {
         log::warn!("Replaced some malformed characters in translation file.");
     }
 
+    let data = StripComments::new(data.as_bytes());
+
     let result: DeserializationHelper =
-        serde_json::from_str(&data).context("Failed to parse translation file")?;
+        serde_json::from_reader(data).context("Failed to parse translation file")?;
     Ok(result.0)
 }
 
