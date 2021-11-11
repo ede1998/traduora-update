@@ -36,6 +36,11 @@ The configuration file is discovered using a fallback strategy:
 2. Check environment variable `TRADUORA_UPDATE_CONFIG` for configuration file path
 3. Recursively ascend directories from working directory and look for file `traduora-update.json`
 
+You can generate the JSON schema file yourself by calling the tool with the correct parameters:
+```bash
+$ traduora-update --generate-config-schema /path/to/schema/to/be/created.schema.json
+```
+
 ## How does it work?
 
 The programm queries the Traduora instance and fetches all terms and their translations for the given locale.
