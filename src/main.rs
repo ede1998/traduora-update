@@ -11,6 +11,8 @@ mod modal_host;
 mod updater;
 
 fn main() -> Result<()> {
+    env_logger::init();
+
     if write_schema()? {
         return Ok(());
     }
@@ -43,13 +45,11 @@ fn run(data: Vec<loader::Translation>) -> Result<(), PlatformError> {
     let main_window = WindowDesc::new(layout::build_ui).title("Traduora-Update");
     AppLauncher::with_window(main_window)
         .delegate(layout::Delegate)
-        .use_simple_logger()
         .launch(state)
 }
 
 fn run_startup_failed(err: anyhow::Error) -> Result<(), PlatformError> {
     let window = WindowDesc::new(layout::build_ui_startup_failed).title("Traduora-Update");
     AppLauncher::with_window(window)
-        .use_simple_logger()
         .launch(err.into())
 }
