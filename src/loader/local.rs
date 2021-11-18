@@ -26,7 +26,8 @@ where
     let data = fs::read(&path)
         .with_context(|| format!("Failed to open file {}", path.as_ref().display()))?;
 
-    parse(&data).with_context(|| format!("Failed to load file {}", path.as_ref().display()))
+    parse(&data, Source::Local)
+        .with_context(|| format!("Failed to load file {}", path.as_ref().display()))
 }
 
 pub fn load_from_git<P>(revision: &str, path: P) -> Result<Vec<Translation>>
@@ -47,7 +48,7 @@ where
             .get_path(path.as_ref())?
             .to_object(&repo)?
             .peel_to_blob()?;
-        parse(blob.content())
+        parse(blob.content(), Source::Git)
     };
 
     fun().with_context(|| {
@@ -59,9 +60,14 @@ where
     })
 }
 
-fn parse(data: &[u8]) -> Result<Vec<Translation>> {
+enum Source {
+    Git,
+    Local,
+}
+
+fn parse(data: &[u8], src: Source) -> Result<Vec<Translation>> {
     use json_comments::StripComments;
-    let enc = guess_encoding(data);
+    let enc = guess_encoding(data, src);
     let (data, encountered_malformeds) = enc.decode_with_bom_removal(data);
 
     if encountered_malformeds {
@@ -75,11 +81,14 @@ fn parse(data: &[u8]) -> Result<Vec<Translation>> {
     Ok(result.0)
 }
 
-fn guess_encoding(data: &[u8]) -> &'static encoding_rs::Encoding {
+fn guess_encoding(data: &[u8], src: Source) -> &'static encoding_rs::Encoding {
     use encoding_rs::Encoding;
-    crate::config::get()
-        .encoding()
-        .unwrap_or_else(|| Encoding::for_bom(data).map_or(encoding_rs::UTF_8, |x| x.0))
+    let config = crate::config::get();
+    match src {
+        Source::Git => config.encoding_git(),
+        Source::Local => config.encoding_local(),
+    }
+    .unwrap_or_else(|| Encoding::for_bom(data).map_or(encoding_rs::UTF_8, |x| x.0))
 }
 
 struct DeserializationHelper(Vec<Translation>);
@@ -151,10 +160,10 @@ mod tests {
         let utf16be = include_bytes!("../../testdata/en-utf16be.json");
         let utf16le = include_bytes!("../../testdata/en-utf16le.json");
 
-        let utf8bom = parse(utf8bom).unwrap();
-        let utf16be = parse(utf16be).unwrap();
-        let utf16le = parse(utf16le).unwrap();
-        let utf8 = parse(utf8).unwrap();
+        let utf8bom = parse(utf8bom, Source::Local).unwrap();
+        let utf16be = parse(utf16be, Source::Local).unwrap();
+        let utf16le = parse(utf16le, Source::Local).unwrap();
+        let utf8 = parse(utf8, Source::Local).unwrap();
 
         assert_eq!(utf8, utf8bom);
         assert_eq!(utf16be, utf16le);

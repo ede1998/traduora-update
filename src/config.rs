@@ -31,6 +31,49 @@ pub enum LoginConfig {
     },
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum Encoding {
+    Combined {
+        #[serde(deserialize_with = "de_helper::deserialize_encoding")]
+        #[schemars(
+            with = "String",
+            example = "de_helper::example::encoding_utf_8",
+            example = "de_helper::example::encoding_utf_16"
+        )]
+        // asdasd
+        git: &'static encoding_rs::Encoding,
+        #[serde(deserialize_with = "de_helper::deserialize_encoding")]
+        #[schemars(
+            with = "String",
+            example = "de_helper::example::encoding_utf_8",
+            example = "de_helper::example::encoding_utf_16"
+        )]
+        // asdasd
+        local: &'static encoding_rs::Encoding,
+    },
+    GitOnly {
+        #[serde(deserialize_with = "de_helper::deserialize_encoding")]
+        #[schemars(
+            with = "String",
+            example = "de_helper::example::encoding_utf_8",
+            example = "de_helper::example::encoding_utf_16"
+        )]
+        // asdasd
+        git: &'static encoding_rs::Encoding,
+    },
+    LocalOnly {
+        #[serde(deserialize_with = "de_helper::deserialize_encoding")]
+        #[schemars(
+            with = "String",
+            example = "de_helper::example::encoding_utf_8",
+            example = "de_helper::example::encoding_utf_16"
+        )]
+        // asdasd
+        local: &'static encoding_rs::Encoding,
+    },
+}
+
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct AppConfig {
     #[serde(flatten)]
@@ -71,14 +114,9 @@ pub struct AppConfig {
     /// Encoding of the translation file. Used for both the local version and the git version.
     /// If omitted, the tool tries to determine the encoding automatically via its byte order mark
     /// or just assumes UTF-8 on failure.
-    #[serde(default, deserialize_with = "de_helper::deserialize_encoding")]
-    #[schemars(
-        with = "Option<String>",
-        skip_serializing,
-        example = "de_helper::example::encoding_utf_8",
-        example = "de_helper::example::encoding_utf_16"
-    )]
-    encoding: Option<&'static encoding_rs::Encoding>,
+    #[serde(default)]
+    #[schemars(skip_serializing)]
+    encoding: Option<Encoding>,
 }
 
 impl AppConfig {
@@ -122,9 +160,22 @@ impl AppConfig {
         self.revision.as_ref()
     }
 
-    /// Get a reference to the app config's encoding.
-    pub fn encoding(&self) -> Option<&'static encoding_rs::Encoding> {
-        self.encoding
+    /// Get a reference to the app config's git encoding.
+    pub fn encoding_git(&self) -> Option<&'static encoding_rs::Encoding> {
+        match self.encoding.as_ref()? {
+            Encoding::Combined { git, .. } => Some(git),
+            Encoding::GitOnly { git } => Some(git),
+            Encoding::LocalOnly { .. } => None,
+        }
+    }
+
+    /// Get a reference to the app config's local file encoding.
+    pub fn encoding_local(&self) -> Option<&'static encoding_rs::Encoding> {
+        match self.encoding.as_ref()? {
+            Encoding::Combined { local, .. } => Some(local),
+            Encoding::LocalOnly { local } => Some(local),
+            Encoding::GitOnly { .. } => None,
+        }
     }
 }
 
@@ -176,7 +227,7 @@ mod de_helper {
         }
     }
 
-    pub fn deserialize_encoding<'de, D>(de: D) -> Result<Option<&'static Encoding>, D::Error>
+    pub fn deserialize_encoding<'de, D>(de: D) -> Result<&'static Encoding, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -199,7 +250,7 @@ mod de_helper {
             }
         }
 
-        de.deserialize_str(Helper).map(Into::into)
+        de.deserialize_str(Helper)
     }
 }
 
@@ -347,7 +398,13 @@ mod tests {
     #[test]
     fn parse_config() {
         let config = parse("./traduora-update.json").unwrap();
-        assert_eq!(encoding_rs::UTF_8, config.encoding.unwrap());
+        assert_eq!(
+            Encoding::Combined {
+                git: encoding_rs::UTF_8,
+                local: encoding_rs::UTF_16LE
+            },
+            config.encoding.unwrap()
+        );
     }
 
     #[test]

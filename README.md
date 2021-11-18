@@ -21,7 +21,10 @@ Configuration happens via JSON file. It takes the following form:
 	"project_id": "92047938-c050-4d9c-83f8-6b1d7fae6b01", // project that should be updated
 	"translation_file": "testdata/en.json", // path that contains the translations. Should be formatted like JSON-flat export of Traduora. Relative path from working directory.
 	"locale": "en", // locale to update
-	"encoding": "utf-8", // optional encoding of the translation file. Used for both the local version and the git version. If omitted, the tool tries to determine the encoding automatically via its byte order mark or just assumes UTF-8 on failure.
+	"encoding": { // The entire block as well as both property on their own are optional. If omitted, the tool tries to determine the encoding automatically via its byte order mark or just assumes UTF-8 on failure.
+		"local": "utf-16", // encoding of file stored in local file system
+		"git": "utf-8" // encoding of file stored in git
+	}
 
 	"with_ssl": true, // whether the connection to the server should be encrypted. Defaults to true.
 	"validate_certs": true, // whether the encryption certificates should be validated. Defaults to true.
