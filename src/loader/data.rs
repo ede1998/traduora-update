@@ -4,14 +4,14 @@ use traduora::api::TermId;
 
 use super::{local, remote};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Modification {
     Removed(TermId),
     Updated(TermId),
     Added,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Translation {
     pub term: String,
     pub translation: String,
@@ -53,7 +53,7 @@ fn merge(
     git.sort_unstable_by(local::Translation::cmp_by_term);
     merge_join_by(local, remote, |l, r| l.term.cmp(&r.term))
         .filter_map(|e| match e {
-            EitherOrBoth::Both(local, remote) => (local.translation != remote.translation)
+            EitherOrBoth::Both(local, remote) => (local.translation != remote.translation && !local.translation.is_empty())
                 .then(|| Translation::updated(local.term, local.translation, remote.term_id)),
             EitherOrBoth::Left(local) => Some(Translation::added(local.term, local.translation)),
             EitherOrBoth::Right(remote) => Some(Translation::removed(
@@ -100,4 +100,28 @@ pub fn load_data() -> Result<Vec<Translation>> {
         local::load_from_git(revision, translation_file)?
     };
     Ok(merge(local, remote, git))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn do_not_remove_text_for_translation_update() {
+        let remote = vec![remote::Translation {
+            term_id: "example-id".into(),
+            term: "foo.bar.baz".into(),
+            translation: "hello world".into(),
+        }];
+        let local = vec![local::Translation {
+            term: "foo.bar.baz".into(),
+            translation: String::new(),
+        }];
+        let git = Vec::new();
+
+        let result = merge(local, remote, git);
+
+        const EXPECTED: &[Translation] = &[];
+        assert_eq!(EXPECTED, result);
+    }
 }
