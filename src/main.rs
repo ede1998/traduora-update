@@ -50,6 +50,5 @@ fn run(data: Vec<loader::Translation>) -> Result<(), PlatformError> {
 
 fn run_startup_failed(err: anyhow::Error) -> Result<(), PlatformError> {
     let window = WindowDesc::new(layout::build_ui_startup_failed).title("Traduora-Update");
-    AppLauncher::with_window(window)
-        .launch(err.into())
+    AppLauncher::with_window(window).launch(err.into())
 }
