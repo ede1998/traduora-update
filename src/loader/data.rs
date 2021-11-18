@@ -53,8 +53,9 @@ fn merge(
     git.sort_unstable_by(local::Translation::cmp_by_term);
     merge_join_by(local, remote, |l, r| l.term.cmp(&r.term))
         .filter_map(|e| match e {
-            EitherOrBoth::Both(local, remote) => (local.translation != remote.translation && !local.translation.is_empty())
-                .then(|| Translation::updated(local.term, local.translation, remote.term_id)),
+            EitherOrBoth::Both(local, remote) => (local.translation != remote.translation
+                && !local.translation.is_empty())
+            .then(|| Translation::updated(local.term, local.translation, remote.term_id)),
             EitherOrBoth::Left(local) => Some(Translation::added(local.term, local.translation)),
             EitherOrBoth::Right(remote) => Some(Translation::removed(
                 remote.term,
@@ -62,6 +63,7 @@ fn merge(
                 remote.term_id,
             )),
         })
+        .inspect(|t| log::debug!("Traduora and local translations differ: {:?}", t))
         .merge_join_by(git, |t, g| t.term.cmp(&g.term))
         .filter_map(|e: EitherOrBoth<_, _>| {
             match e {
@@ -76,15 +78,16 @@ fn merge(
                     // term exists in git -> removal was explicit
                     Modification::Removed(_) => Some(t),
                     // Term exists locally and in git but not in Traduora -> term removed elsewhere
-                    Modification::Added => None,
+                    | Modification::Added
                     // Translations differ in Traduora and locally but git is same as local -> translation changed elsewhere
                     // Translations differ in Traduora and locally but git is different than local -> translation changed locally
-                    Modification::Updated(_) => (t.translation != g.translation).then(|| t),
+                    | Modification::Updated(_) => (t.translation != g.translation).then(|| t),
                 },
                 // term does not exist in git but was not removed, git is too old to know term -> no git data to double check with
                 EitherOrBoth::Left(t) => Some(t),
             }
         })
+        .inspect(|t| log::info!("Found translation to update: {:?}", t))
         .collect()
 }
 
@@ -123,5 +126,49 @@ mod tests {
 
         const EXPECTED: &[Translation] = &[];
         assert_eq!(EXPECTED, result);
+    }
+
+    #[test]
+    fn removed_on_traduora_but_changed_locally_recreate_term() {
+        let remote = vec![];
+        let local = vec![local::Translation {
+            term: "foo.bar.baz".into(),
+            translation: "It's a me, mario.".into(),
+        }];
+        let git = vec![local::Translation {
+            term: "foo.bar.baz".into(),
+            translation: "Hello world!".into(),
+        }];
+
+        let result = merge(local, remote, git);
+
+        assert_eq!(1, result.len());
+        assert_eq!("foo.bar.baz", result[0].term);
+        assert_eq!("It's a me, mario.", result[0].translation);
+        assert_eq!(Modification::Added, result[0].modification);
+    }
+
+    #[test]
+    fn update_translation_text() {
+        let remote = vec![remote::Translation {
+            term_id: "example-id".into(),
+            term: "foo.bar.baz".into(),
+            translation: "hello world".into(),
+        }];
+        let local = vec![local::Translation {
+            term: "foo.bar.baz".into(),
+            translation: "It's a me, mario.".into(),
+        }];
+        let git = Vec::new();
+
+        let result = merge(local, remote, git);
+
+        assert_eq!(1, result.len());
+        assert_eq!("foo.bar.baz", result[0].term);
+        assert_eq!("It's a me, mario.", result[0].translation);
+        assert_eq!(
+            Modification::Updated("example-id".into()),
+            result[0].modification
+        );
     }
 }

@@ -437,6 +437,12 @@ impl AppDelegate<AppState> for Delegate {
             data.popup = Popup::Progressing(*progress);
             druid::Handled::Yes
         } else if let Some(result) = cmd.get(UPDATE_FINISHED).and_then(SingleUse::take) {
+            let load_result = crate::loader::load_data();
+            log::info!(
+                "Finished refreshing data. Error (if any): {:?}.",
+                load_result.as_ref().err()
+            );
+            *data = AppState::build(load_result.unwrap_or_default());
             data.popup = Popup::Finished(result.into());
             druid::Handled::Yes
         } else {
