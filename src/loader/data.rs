@@ -53,7 +53,7 @@ fn merge(
     git.sort_unstable_by(local::Translation::cmp_by_term);
     merge_join_by(local, remote, |l, r| l.term.cmp(&r.term))
         .filter_map(|e| match e {
-            EitherOrBoth::Both(local, remote) => (local.translation != remote.translation)
+            EitherOrBoth::Both(local, remote) => (local.translation != remote.translation && !local.translation.is_empty())
                 .then(|| Translation::updated(local.term, local.translation, remote.term_id)),
             EitherOrBoth::Left(local) => Some(Translation::added(local.term, local.translation)),
             EitherOrBoth::Right(remote) => Some(Translation::removed(
