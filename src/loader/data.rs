@@ -4,14 +4,14 @@ use traduora::api::TermId;
 
 use super::{local, remote};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Modification {
     Removed(TermId),
     Updated(TermId),
     Added,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Translation {
     pub term: String,
     pub translation: String,
@@ -100,4 +100,28 @@ pub fn load_data() -> Result<Vec<Translation>> {
         local::load_from_git(revision, translation_file)?
     };
     Ok(merge(local, remote, git))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn do_not_remove_text_for_translation_update() {
+        let remote = vec![remote::Translation {
+            term_id: "example-id".into(),
+            term: "foo.bar.baz".into(),
+            translation: "hello world".into(),
+        }];
+        let local = vec![local::Translation {
+            term: "foo.bar.baz".into(),
+            translation: String::new(),
+        }];
+        let git = Vec::new();
+
+        let result = merge(local, remote, git);
+
+        const EXPECTED: &[Translation] = &[];
+        assert_eq!(EXPECTED, result);
+    }
 }
