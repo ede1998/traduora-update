@@ -49,13 +49,13 @@
     "encoding": {
       "description": "Encoding of the translation file. Used for both the local version and the git version. If omitted, the tool tries to determine the encoding automatically via its byte order mark or just assumes UTF-8 on failure.",
       "writeOnly": true,
-      "examples": [
-        "utf-8",
-        "utf-16"
-      ],
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Encoding"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "host": {
@@ -102,6 +102,65 @@
       "description": "Whether the connection to the server should be encrypted. Defaults to true.",
       "default": true,
       "type": "boolean"
+    }
+  },
+  "definitions": {
+    "Encoding": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "git",
+            "local"
+          ],
+          "properties": {
+            "git": {
+              "examples": [
+                "utf-8",
+                "utf-16"
+              ],
+              "type": "string"
+            },
+            "local": {
+              "examples": [
+                "utf-8",
+                "utf-16"
+              ],
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "git"
+          ],
+          "properties": {
+            "git": {
+              "examples": [
+                "utf-8",
+                "utf-16"
+              ],
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "local"
+          ],
+          "properties": {
+            "local": {
+              "examples": [
+                "utf-8",
+                "utf-16"
+              ],
+              "type": "string"
+            }
+          }
+        }
+      ]
     }
   }
 }

@@ -9,5 +9,8 @@
 	"with_ssl": false, // whether the connection to the server should be encrypted. Defaults to true.
 	"validate_certs": false, // whether the encryption certificates should be validated. Defaults to true.
 	"revision": "9011cdcd095d156c6a7e34182fdcba144ab1789a", // git revision to use for sanity checks to prevent wrongly changing terms. Can be any valid revision, e.g. commit hash, tag, branch. Should usually be your default branch. If omitted, sanity checks are skipped.
-	"encoding": "utf-8" // optional encoding of the translation file. Used for both the local version and the git version. If omitted, the tool tries to determine the encoding automatically via its byte order mark or just assumes UTF-8 on failure.
+	"encoding": { // optional
+		"local": "utf-16", // encoding of file stored in local file system
+		"git": "utf-8" // encoding of file stored in git
+	}
 }
