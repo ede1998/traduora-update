@@ -24,7 +24,7 @@ Configuration happens via JSON file. It takes the following form:
 	"encoding": { // The entire block as well as both properties on their own are optional. If omitted, the tool tries to determine the encoding automatically via its byte order mark or just assumes UTF-8 on failure.
 		"local": "utf-16", // encoding of file stored in local file system
 		"git": "utf-8" // encoding of file stored in git
-	}
+	},
 
 	"with_ssl": true, // whether the connection to the server should be encrypted. Defaults to true.
 	"validate_certs": true, // whether the encryption certificates should be validated. Defaults to true.

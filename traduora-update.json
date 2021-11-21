@@ -10,7 +10,7 @@
 	"validate_certs": false, // whether the encryption certificates should be validated. Defaults to true.
 	"revision": "9011cdcd095d156c6a7e34182fdcba144ab1789a", // git revision to use for sanity checks to prevent wrongly changing terms. Can be any valid revision, e.g. commit hash, tag, branch. Should usually be your default branch. If omitted, sanity checks are skipped.
 	"encoding": { // optional
-		"local": "utf-16", // encoding of file stored in local file system
+		"local": "utf-8", // encoding of file stored in local file system
 		"git": "utf-8" // encoding of file stored in git
 	}
 }
