@@ -1,6 +1,3 @@
-// On Windows platform, don't show a console when opening the app.
-#![windows_subsystem = "windows"]
-
 use anyhow::{Context, Result};
 use druid::{AppLauncher, PlatformError, WindowDesc};
 
