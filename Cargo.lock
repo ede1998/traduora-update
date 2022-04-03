@@ -2062,9 +2062,9 @@ dependencies = [
 
 [[package]]
 name = "traduora"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6b61c83b36d95519e66352a6502641eff052c9745e5f3767b78fb6cdf11214f"
+checksum = "9dea56189962efb29663da343a867e03bac064c6b9092c501535f316969677b6"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2080,7 +2080,7 @@ dependencies = [
 
 [[package]]
 name = "traduora-update"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "druid",
